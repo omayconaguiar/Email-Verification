@@ -13,9 +13,6 @@ module.exports = app =>{
     app.route('/users/:id')
         .all(app.config.passport.authenticate())
         .put(app.api.user.save)
-        .get(app.api.user.get)
+        .get(app.api.user.getById)
 
-    app.route('/sentemail')
-        .post((app.api.email.send))
-    
 }

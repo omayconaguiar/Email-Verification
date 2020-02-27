@@ -1,4 +1,6 @@
 const bcrypt = require('bcrypt-nodejs')
+const mailer = require('nodemailer')
+require('dotenv').config({path: __dirname + '/.env'})
 
 module.exports = app => {
  
@@ -9,13 +11,22 @@ module.exports = app => {
         return bcrypt.hashSync(password, salt)
     }
 
+    const transporter = mailer.createTransport({
+        service: "gmail",
+        auth: {
+            user: process.env.NICK,
+            pass: process.env.PASSWORD
+        }
+    });
+
     const save = async (req, res) => {
         const user = {...req.body}
+       
         if(req.params.id) user.id= req.params.id
 
         if(!req.originalUrl.startsWith('/users')) user.admin = false
         if(!req.user || !req.user.admin) user.admin = false
-
+        
         try {
             existsOrError(user.cpf, 'Cpf não informado')
             existsOrError(user.password, 'Senha não informado')
@@ -47,6 +58,7 @@ module.exports = app => {
             if(!user.id) {
                 notExistsOrError(userFromDB, 'Usuário já cadastrado')
             }
+            
         } catch(msg) {
             return res.status(400).send(msg)
         }
@@ -65,10 +77,23 @@ module.exports = app => {
                 .insert(user)
                 .then(_ => res.status(204).send())
                 .catch(err => res.status(500).send(err))
+            
+            const mailOptions = {
+                from: process.env.NICK,
+                to: user.email,
+                subject: 'E-mail enviado usando Node!',
+                text: 'Bem Fácil, não? ;)'
+            };
+            
+            transporter.sendMail(mailOptions, function(err, info){
+                if (err) {
+                    return res.status(400).send("falhou")
+                } else {
+                    return res.status(200).send("foi")
+                }
+            });
         }
     }
-    
-    
 
     const get = (req, res) => {
         app.db('users')
@@ -79,12 +104,14 @@ module.exports = app => {
 
     const getById = (req, res) => {
         app.db('users')
-        .select('id', 'name', 'email','admin', 'cpf','cell','birthday','cep','place','number','complement','neighborhood','city','state','rg','expedition','whereexpedition','civilstate','category','company','profission','salary')
+        .select('id', 'name','admin', 'email', 'cpf','cell','birthday','cep','place','number','complement','neighborhood','city','state','rg','expedition','whereexpedition','civilstate','category','company','profission','salary')
             .where({ id: req.params.id })
             .first()
             .then(user => res.json(user))
             .catch(err => res.status(500).send(err))
     }
+
+   
 
 
     return { save, get, getById }
